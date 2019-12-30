@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 	"log"
 	"os"
@@ -15,15 +15,22 @@ import (
 )
 
 func main() {
-	addr := "localhost:50051"
+	// Register resolver for load balancing
+	resolver.Register(&exampleResolverBuilder{})
+	addr := "testScheme:///example"
+
 	// use TLS authentication
-	cred, err := credentials.NewClientTLSFromFile("server.crt", "")
-	if err != nil {
-		log.Fatal(err)
-	}
+	//cred, err := credentials.NewClientTLSFromFile("server.crt", "")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 	// rpcの処理の前後にInterceptorでログ出力処理を差し込む
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(cred),
-		grpc.WithUnaryInterceptor(unaryInterceptor))
+	conn, err := grpc.Dial(
+		addr,
+		grpc.WithInsecure(),
+		//grpc.WithTransportCredentials(cred),
+		grpc.WithUnaryInterceptor(unaryInterceptor),
+		grpc.WithBalancerName("round_robin"))
 
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -65,3 +72,38 @@ func unaryInterceptor(ctx context.Context, method string, req, reply interface{}
 	log.Printf("after call: %s, response: %+v", method, reply)
 	return err
 }
+
+type exampleResolverBuilder struct{}
+
+func (*exampleResolverBuilder) Build(target resolver.Target, cc resolver.ClientConn,
+	opts resolver.BuildOptions) (resolver.Resolver, error) {
+	r := &exampleResolver{
+		target: 		target,
+		cc:				cc,
+		addressStore: 	map[string][]string{
+			"example": {"localhost:50051", "localhost:50052"},
+		},
+	}
+	r.start()
+	return r, nil
+}
+
+func (*exampleResolverBuilder) Scheme() string { return "testScheme" }
+
+type exampleResolver struct {
+	target			resolver.Target
+	cc				resolver.ClientConn
+	addressStore	map[string][]string
+}
+
+func(r *exampleResolver) start() {
+	addressStrings := r.addressStore[r.target.Endpoint]
+	address := make([]resolver.Address, len(addressStrings))
+	for i, s := range addressStrings {
+		address[i] = resolver.Address{Addr: s}
+	}
+	r.cc.UpdateState(resolver.State{Addresses: address})
+}
+func (*exampleResolver) ResolveNow(o resolver.ResolveNowOptions) {}
+func (*exampleResolver) Close()									 {}
+

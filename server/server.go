@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"google.golang.org/grpc/credentials"
 	//"errors"
 	"log"
 	"net"
@@ -37,19 +36,19 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func main() {
-	addr := ":50051"
+	addr := ":50052"
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	// use TLS authentication
-	cred, err := credentials.NewServerTLSFromFile("server.crt", "private.key")
-	if err != nil {
-		log.Fatal(err)
-	}
-	s := grpc.NewServer(grpc.Creds(cred))
-
+	//cred, err := credentials.NewServerTLSFromFile("server.crt", "private.key")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//s := grpc.NewServer(grpc.Creds(cred))
+	s := grpc.NewServer()
 	pb.RegisterGreeterServer(s, &server{})
 
 	log.Printf("gRPC server listening on " + addr)
