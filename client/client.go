@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"log"
@@ -15,7 +16,13 @@ import (
 
 func main() {
 	addr := "localhost:50051"
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	// use TLS authentication
+	cred, err := credentials.NewClientTLSFromFile("server.crt", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(cred))
+
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

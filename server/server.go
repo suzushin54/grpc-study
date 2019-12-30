@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"time"
-
+	"google.golang.org/grpc/credentials"
 	//"errors"
 	"log"
 	"net"
@@ -16,7 +15,7 @@ type server struct{}
 
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	log.Printf("Received: %v", in.Name)
-	time.Sleep(3 * time.Second)
+	//time.Sleep(3 * time.Second)
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil
 	//st, _ := status.New(codes.Aborted, "aborted").WithDetails(&errdetails.RetryInfo{
 	//	// request retry after 3 seconds
@@ -44,7 +43,13 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	// use TLS authentication
+	cred, err := credentials.NewServerTLSFromFile("server.crt", "private.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+	s := grpc.NewServer(grpc.Creds(cred))
+
 	pb.RegisterGreeterServer(s, &server{})
 
 	log.Printf("gRPC server listening on " + addr)
